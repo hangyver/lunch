@@ -1,30 +1,7 @@
-// Lunch Roulette – React + GSAP + Confetti 🎉 (mobile‑responsive & localStorage)
-// -----------------------------------------------------------------------------
-// • Adds celebratory UX: explosive confetti + bouncing overlay displaying today’s lunch.
-// • Uses `canvas-confetti` (auto‑loaded via dynamic import) & GSAP pop‑animation.
-// • Maintains palette bug‑fix, responsive sizing, add/remove menus, persistence.
-// -----------------------------------------------------------------------------
-
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 
-/* ---------- Constants ------------------------------------------------- */
-const PALETTE = [
-  "#FF6B6B",
-  "#FFCA3A",
-  "#8AC926",
-  "#1982C4",
-  "#6A4C93",
-  "#F72585",
-  "#3A86FF",
-  "#8338EC",
-  "#FF9F1C",
-  "#2EC4B6",
-];
-const STORAGE_KEY = "lunchRouletteMenus";
-const POINTER_ANGLE = 270;
-
-/* ---------- Helper fns ------------------------------------------------ */
+/* ---------- Helpers --------------------------------------------------- */
 const polarToCartesian = (cx, cy, r, deg) => {
   const rad = ((deg - 90) * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
@@ -35,10 +12,11 @@ const describeArc = (cx, cy, r, startDeg, endDeg) => {
   const large = endDeg - startDeg <= 180 ? 0 : 1;
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 0 ${end.x} ${end.y} Z`;
 };
+const STORAGE_KEY = "lunchRouletteMenus";
 
-/* ---------- Component ------------------------------------------------- */
+/* ---------- Component -------------------------------------------------- */
 export default function LunchRouletteApp() {
-  /* ----- State ------------------------------------------------------ */
+  /* ----- State -------------------------------------------------------- */
   const defaultMenus = [
     "라면",
     "볶음밥",
@@ -50,119 +28,115 @@ export default function LunchRouletteApp() {
     "파스타",
   ];
   const [menus, setMenus] = useState(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      return Array.isArray(stored) && stored.length ? stored : defaultMenus;
-    } catch {
-      return defaultMenus;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        if (Array.isArray(stored) && stored.length) return stored;
+      } catch (_) {}
     }
+    return defaultMenus;
   });
   const [newMenu, setNewMenu] = useState("");
   const [winner, setWinner] = useState(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [currentRotation, setCurrentRotation] = useState(0);
   const [wheelSize, setWheelSize] = useState(() =>
-    Math.max(180, Math.min(320, window.innerWidth - 48))
+    typeof window !== "undefined" ? Math.max(180, Math.min(320, window.innerWidth - 48)) : 300
   );
-  const [showOverlay, setShowOverlay] = useState(false);
 
-  /* ----- Refs ------------------------------------------------------- */
-  const wheelRef = useRef(null);
-  const overlayRef = useRef(null);
-
-  /* ----- Responsive resize ----------------------------------------- */
+  /* ----- Responsive resize ------------------------------------------- */
   useEffect(() => {
-    const onResize = () => setWheelSize(Math.max(180, Math.min(320, window.innerWidth - 48)));
+    const onResize = () => {
+      const w = window.innerWidth;
+      setWheelSize(Math.max(180, Math.min(320, w - 48)));
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  /* ----- Persist menus --------------------------------------------- */
+  /* ----- Persist menus ------------------------------------------------ */
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(menus));
   }, [menus]);
 
-  /* ----- Draw wheel ------------------------------------------------- */
+  /* ----- Drawing ------------------------------------------------------ */
+  const wheelRef = useRef(null);
+  const pointerAngle = 270;
   useEffect(() => {
     const wheel = wheelRef.current;
     if (!wheel) return;
+
     while (wheel.firstChild) wheel.removeChild(wheel.firstChild);
     const r = wheelSize / 2;
     const sliceAngle = 360 / menus.length;
+    const palette = [
+      "#FF6B6B",
+      "#FFCA3A",
+      "#8AC926",
+      "#1982C4",
+      "#6A4C93",
+      "#F72585",
+      "#3A86FF",
+      "#8338EC",
+      "#FF9F1C",
+      "#2EC4B6",
+    ];
 
     menus.forEach((label, i) => {
       const start = i * sliceAngle;
       const end = (i + 1) * sliceAngle;
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", describeArc(r, r, r, start, end));
-      path.setAttribute("fill", PALETTE[i % PALETTE.length]);
-      path.setAttribute("stroke", "#fff");
-      path.setAttribute("stroke-width", "1");
-      wheel.appendChild(path);
+
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p.setAttribute("d", describeArc(r, r, r, start, end));
+      p.setAttribute("fill", palette[i % palette.length]);
+      p.setAttribute("stroke", "#fff");
+      p.setAttribute("stroke-width", "1");
+      wheel.appendChild(p);
+
       const mid = start + sliceAngle / 2;
       const { x, y } = polarToCartesian(r, r, r * 0.65, mid);
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("x", x);
-      text.setAttribute("y", y);
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("dominant-baseline", "middle");
-      text.setAttribute("font-size", wheelSize < 220 ? "10" : "12");
-      text.setAttribute("font-weight", "600");
-      text.setAttribute("fill", "#fff");
-      text.textContent = label;
-      wheel.appendChild(text);
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", x);
+      t.setAttribute("y", y);
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("dominant-baseline", "middle");
+      t.setAttribute("font-size", wheelSize < 220 ? "10" : "12");
+      t.setAttribute("font-weight", "600");
+      t.setAttribute("fill", "#fff");
+      t.textContent = label;
+      wheel.appendChild(t);
     });
   }, [menus, wheelSize]);
 
-  /* ----- Spin ------------------------------------------------------- */
+  /* ----- Spin --------------------------------------------------------- */
   const spin = () => {
     if (isSpinning || menus.length === 0) return;
+
     const sliceAngle = 360 / menus.length;
     setIsSpinning(true);
     setWinner(null);
-    setShowOverlay(false);
 
-    const idx = Math.floor(Math.random() * menus.length);
-    const mid = idx * sliceAngle + sliceAngle / 2;
-    const delta = (POINTER_ANGLE - mid - currentRotation + 360 * 1000) % 360;
-    const targetRot = currentRotation + 360 * 5 + delta;
+    const randIdx = Math.floor(Math.random() * menus.length);
+    const sliceMid = randIdx * sliceAngle + sliceAngle / 2;
+    const delta = (pointerAngle - sliceMid - currentRotation + 360 * 1000) % 360;
+    const targetRotation = currentRotation + 360 * 5 + delta;
 
     gsap.to(wheelRef.current, {
-      rotation: targetRot,
+      rotation: targetRotation,
       duration: 5,
       ease: "power4.out",
       onComplete: () => {
         const finalRot = ((gsap.getProperty(wheelRef.current, "rotation") % 360) + 360) % 360;
         setCurrentRotation(finalRot);
-        const rel = (POINTER_ANGLE - finalRot + 360) % 360;
-        const landedIdx = Math.floor(rel / sliceAngle) % menus.length;
-        const result = menus[landedIdx];
-        setWinner(result);
+        const relative = (pointerAngle - finalRot + 360) % 360;
+        const landedIdx = Math.floor(relative / sliceAngle) % menus.length;
+        setWinner(menus[landedIdx]);
         setIsSpinning(false);
-        triggerCelebration(result);
       },
     });
   };
 
-  /* ----- Celebration: confetti + overlay animation ------------------ */
-  const triggerCelebration = async (result) => {
-    setShowOverlay(true);
-    gsap.fromTo(
-      overlayRef.current,
-      { scale: 0, opacity: 0 },
-      { scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.7)" }
-    );
-
-    const confetti = (await import("canvas-confetti")).default;
-    confetti({
-      particleCount: 150,
-      spread: 70,
-      origin: { y: 0.7 },
-      colors: PALETTE,
-    });
-  };
-
-  /* ----- Menu handlers ---------------------------------------------- */
+  /* ----- Menu handlers ------------------------------------------------ */
   const addMenu = () => {
     const m = newMenu.trim();
     if (m && !menus.includes(m)) setMenus([...menus, m]);
@@ -170,24 +144,10 @@ export default function LunchRouletteApp() {
   };
   const removeMenu = (m) => setMenus(menus.filter((x) => x !== m));
 
-  /* ----- UI --------------------------------------------------------- */
+  /* ----- UI ----------------------------------------------------------- */
   return (
     <div className="flex flex-col items-center gap-6 p-4 bg-[#fafafa] min-h-screen text-sm md:text-base">
-      {/* Overlay */}
-      {showOverlay && (
-        <div
-          ref={overlayRef}
-          className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 pointer-events-none"
-        >
-          <div className="bg-white rounded-3xl px-8 py-6 shadow-2xl text-center">
-            <p className="text-2xl md:text-3xl font-extrabold text-[#e63946] animate-bounce">
-              🎉 오늘의 점심은 {winner}! 🎉
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Input & chips */}
+      {/* Input + chips */}
       <div className="flex flex-col items-center w-full max-w-md gap-3">
         <h1 className="text-xl md:text-2xl font-bold">🍽️ 오늘 점심 뭐 먹지?</h1>
         <div className="flex w-full flex-col xs:flex-row gap-2">
@@ -211,9 +171,7 @@ export default function LunchRouletteApp() {
               key={m}
               onClick={() => removeMenu(m)}
               className="px-3 py-1 rounded-full text-xs text-white"
-              style={{
-                backgroundImage: `linear-gradient(45deg, ${PALETTE[i % PALETTE.length]}, ${PALETTE[(i + 1) % PALETTE.length]})`,
-              }}
+              style={{ background: "#00000020", backgroundColor: undefined, color: "#fff", backgroundBlendMode: "multiply", backgroundImage: `linear-gradient(45deg, ${palette[i % palette.length]}, ${palette[(i + 1) % palette.length]})` }}
               title="클릭 삭제"
             >
               {m} ✕
@@ -250,6 +208,11 @@ export default function LunchRouletteApp() {
       >
         {isSpinning ? "돌리는 중…" : "룰렛 돌리기"}
       </button>
+
+      {winner && !isSpinning && (
+        <p className="text-lg md:text-xl font-bold text-center animate-pulse">오늘은 {winner} 어떠세요?</p>
+      )}
     </div>
   );
 }
+
